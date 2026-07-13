@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PDB Structure Metadata",
+  "description": "Schema for structure records fetched from PDBe API /entry/summary endpoint",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "pdb_ids", "publications"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version (semver)"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the data was generated"
+    },
+    "pdb_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-z]{4}$"
+      },
+      "description": "List of PDB codes (lowercase)"
+    },
+    "publications": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StructureRecord"
+      },
+      "description": "List of structure records with publication metadata from PDBe"
+    }
+  },
+  "$defs": {
+    "StructureRecord": {
+      "type": "object",
+      "required": [
+        "pdb_id",
+        "title",
+        "authors",
+        "release_date",
+        "deposition_date",
+        "experimental_method"
+      ],
+      "properties": {
+        "pdb_id": {
+          "type": "string",
+          "pattern": "^[0-9a-z]{4}$",
+          "description": "PDB code (lowercase)"
+        },
+        "title": {
+          "type": ["string", "null"],
+          "description": "Structure title"
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of structure authors"
+        },
+        "release_date": {
+          "type": ["string", "null"],
+          "format": "date",
+          "description": "PDB release date (YYYY-MM-DD)"
+        },
+        "deposition_date": {
+          "type": ["string", "null"],
+          "description": "Deposition date (YYYYMMDD format from PDBe)"
+        },
+        "experimental_method": {
+          "type": ["string", "null"],
+          "description": "Experimental method(s) used to solve the structure"
+        }
+      }
+    }
+  }
+}
