@@ -1,3 +1,3 @@
-from histo_publication_info_fetch.core import PublicationFetcher, PublicationRecord
+from histo_publication_info_fetch.core import Author, PublicationFetcher, PublicationRecord
 
-__all__ = ["PublicationFetcher", "PublicationRecord"]
+__all__ = ["Author", "PublicationFetcher", "PublicationRecord"]

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "PDB Structure Metadata",
-  "description": "Schema for structure records fetched from PDBe API /entry/summary endpoint",
+  "title": "BibJSON Publication Metadata",
+  "description": "BibJSON format for PDB structure publications, combining structure metadata (PDBe) with journal details (Europe PMC)",
   "type": "object",
   "required": ["schema_version", "generated_at", "pdb_ids", "publications"],
   "properties": {
@@ -25,38 +25,82 @@
     "publications": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/StructureRecord"
+        "$ref": "#/$defs/PublicationRecord"
       },
-      "description": "List of structure records with publication metadata from PDBe"
+      "description": "List of publication records in BibJSON format"
     }
   },
   "$defs": {
-    "StructureRecord": {
+    "Author": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Author name"
+        }
+      }
+    },
+    "PublicationRecord": {
       "type": "object",
       "required": [
-        "pdb_id",
+        "type",
         "title",
         "authors",
+        "pdb_id",
         "release_date",
         "deposition_date",
         "experimental_method"
       ],
       "properties": {
-        "pdb_id": {
+        "type": {
           "type": "string",
-          "pattern": "^[0-9a-z]{4}$",
-          "description": "PDB code (lowercase)"
+          "enum": ["article", "dataset"],
+          "description": "Record type: 'article' if journal found, 'dataset' if structure-only"
         },
         "title": {
           "type": ["string", "null"],
-          "description": "Structure title"
+          "description": "Publication title"
         },
         "authors": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/Author"
           },
-          "description": "List of structure authors"
+          "description": "List of authors (BibJSON format)"
+        },
+        "year": {
+          "type": ["integer", "null"],
+          "description": "Publication year"
+        },
+        "journal": {
+          "type": ["string", "null"],
+          "description": "Journal title (null if not found in Europe PMC)"
+        },
+        "volume": {
+          "type": ["string", "null"],
+          "description": "Journal volume"
+        },
+        "issue": {
+          "type": ["string", "null"],
+          "description": "Journal issue"
+        },
+        "pages": {
+          "type": ["string", "null"],
+          "description": "Page range (e.g., '1234-1245')"
+        },
+        "doi": {
+          "type": ["string", "null"],
+          "description": "Digital Object Identifier"
+        },
+        "abstract": {
+          "type": ["string", "null"],
+          "description": "Publication abstract (from Europe PMC if available)"
+        },
+        "pdb_id": {
+          "type": "string",
+          "pattern": "^[0-9a-z]{4}$",
+          "description": "PDB code (lowercase)"
         },
         "release_date": {
           "type": ["string", "null"],
@@ -65,11 +109,12 @@
         },
         "deposition_date": {
           "type": ["string", "null"],
-          "description": "Deposition date (YYYYMMDD format from PDBe)"
+          "format": "date",
+          "description": "Deposition date (YYYY-MM-DD)"
         },
         "experimental_method": {
           "type": ["string", "null"],
-          "description": "Experimental method(s) used to solve the structure"
+          "description": "Experimental method used to solve the structure"
         }
       }
     }

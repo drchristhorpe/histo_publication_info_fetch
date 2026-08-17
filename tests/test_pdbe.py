@@ -68,7 +68,7 @@ def test_parse_entry_summary_fields():
     assert result["title"] == "Test Title"
     assert result["authors"] == ["Author One", "Author Two"]
     assert result["release_date"] == "2020-01-01"
-    assert result["deposition_date"] == "20191201"
+    assert result["deposition_date"] == "2019-12-01"
     assert result["experimental_method"] == "X-ray diffraction"
 
 

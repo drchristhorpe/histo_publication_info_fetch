@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from histo_publication_info_fetch.core import PublicationFetcher, PublicationRecord
+from histo_publication_info_fetch.core import Author, PublicationFetcher, PublicationRecord
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "pdbe"
 
@@ -19,9 +19,17 @@ def fixture_1ao7():
 @pytest.fixture
 def publication_record():
     return PublicationRecord(
-        pdb_id="1ao7",
+        type="article",
         title="Test Title",
-        authors=["Author One", "Author Two"],
+        authors=[Author(name="Author One"), Author(name="Author Two")],
+        year=2020,
+        journal="Test Journal",
+        volume="10",
+        issue="5",
+        pages="123-135",
+        doi="10.1234/test",
+        abstract="Test abstract.",
+        pdb_id="1ao7",
         release_date="2020-01-01",
         deposition_date="2019-12-01",
         experimental_method="X-ray diffraction",
@@ -34,8 +42,9 @@ def test_publication_record_to_dict(publication_record):
 
     assert d["pdb_id"] == "1ao7"
     assert d["title"] == "Test Title"
-    assert d["authors"] == ["Author One", "Author Two"]
+    assert d["authors"] == [{"name": "Author One"}, {"name": "Author Two"}]
     assert d["release_date"] == "2020-01-01"
+    assert d["journal"] == "Test Journal"
 
 
 def test_publication_record_from_dict(publication_record):
@@ -45,7 +54,8 @@ def test_publication_record_from_dict(publication_record):
 
     assert record.pdb_id == publication_record.pdb_id
     assert record.title == publication_record.title
-    assert record.authors == publication_record.authors
+    assert len(record.authors) == len(publication_record.authors)
+    assert record.authors[0].name == "Author One"
 
 
 def test_fetcher_write_json(publication_record, tmp_path):
@@ -95,47 +105,80 @@ def test_fetcher_write_csv_empty(tmp_path):
     assert content == ""
 
 
+@patch("histo_publication_info_fetch.core.fetch_article_by_doi")
 @patch("histo_publication_info_fetch.core.fetch_pdbe_entry")
-def test_fetcher_fetch_one(mock_fetch, tmp_path):
+def test_fetcher_fetch_one(mock_fetch_pdbe, mock_fetch_pmc, tmp_path):
     """Test fetching a single PDB code."""
-    mock_data = {
+    mock_pdbe_data = {
         "pdb_id": "1ao7",
         "title": "Test",
         "authors": ["Author"],
         "release_date": "2020-01-01",
         "deposition_date": "2019-12-01",
         "experimental_method": "X-ray diffraction",
+        "doi": "10.1234/test",
+        "publication_year": 2020,
     }
-    mock_fetch.return_value = mock_data
+    mock_pmc_data = {
+        "journal": "Test Journal",
+        "volume": "10",
+        "issue": "5",
+        "pages": "123-135",
+        "abstract": "Test abstract.",
+        "authors": ["Author"],
+        "year": 2020,
+        "doi": "10.1234/test",
+        "pmid": None,
+    }
+    mock_fetch_pdbe.return_value = mock_pdbe_data
+    mock_fetch_pmc.return_value = mock_pmc_data
 
     fetcher = PublicationFetcher(cache_dir=tmp_path)
     record = fetcher.fetch_one("1ao7")
 
     assert record.pdb_id == "1ao7"
     assert record.title == "Test"
-    mock_fetch.assert_called_once()
+    assert record.type == "article"
+    mock_fetch_pdbe.assert_called_once()
 
 
+@patch("histo_publication_info_fetch.core.fetch_article_by_doi")
 @patch("histo_publication_info_fetch.core.fetch_pdbe_entry")
-def test_fetcher_fetch_many(mock_fetch, tmp_path):
+def test_fetcher_fetch_many(mock_fetch_pdbe, mock_fetch_pmc, tmp_path):
     """Test fetching multiple PDB codes."""
-    mock_data_1 = {
+    mock_pdbe_1 = {
         "pdb_id": "1ao7",
         "title": "Test 1",
         "authors": [],
         "release_date": None,
         "deposition_date": None,
         "experimental_method": None,
+        "doi": None,
+        "publication_year": None,
     }
-    mock_data_2 = {
+    mock_pdbe_2 = {
         "pdb_id": "1hla",
         "title": "Test 2",
         "authors": [],
         "release_date": None,
         "deposition_date": None,
         "experimental_method": None,
+        "doi": None,
+        "publication_year": None,
     }
-    mock_fetch.side_effect = [mock_data_1, mock_data_2]
+    mock_pmc_null = {
+        "journal": None,
+        "volume": None,
+        "issue": None,
+        "pages": None,
+        "abstract": None,
+        "authors": None,
+        "year": None,
+        "doi": None,
+        "pmid": None,
+    }
+    mock_fetch_pdbe.side_effect = [mock_pdbe_1, mock_pdbe_2]
+    mock_fetch_pmc.return_value = mock_pmc_null
 
     fetcher = PublicationFetcher(cache_dir=tmp_path)
     records = fetcher.fetch_many(["1ao7", "1hla"])
@@ -143,4 +186,4 @@ def test_fetcher_fetch_many(mock_fetch, tmp_path):
     assert len(records) == 2
     assert records[0].pdb_id == "1ao7"
     assert records[1].pdb_id == "1hla"
-    assert mock_fetch.call_count == 2
+    assert mock_fetch_pdbe.call_count == 2

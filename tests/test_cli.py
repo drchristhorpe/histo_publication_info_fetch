@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from histo_publication_info_fetch.cli import main
-from histo_publication_info_fetch.core import PublicationRecord
+from histo_publication_info_fetch.core import Author, PublicationRecord
 
 
 @pytest.fixture
@@ -17,9 +17,17 @@ def runner():
 @pytest.fixture
 def mock_record():
     return PublicationRecord(
-        pdb_id="1ao7",
+        type="article",
         title="Test Title",
-        authors=["Author One"],
+        authors=[Author(name="Author One")],
+        year=2020,
+        journal="Test Journal",
+        volume="10",
+        issue="5",
+        pages="123-135",
+        doi="10.1234/test",
+        abstract="Test abstract.",
+        pdb_id="1ao7",
         release_date="2020-01-01",
         deposition_date="2019-12-01",
         experimental_method="X-ray diffraction",

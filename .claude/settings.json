@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:pdbe.org)",
+      "WebFetch(domain:europepmc.github.io)",
+      "WebFetch(domain:cran.r-project.org)",
+      "WebFetch(domain:www.biostars.org)",
+      "WebFetch(domain:academic.oup.com)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}
