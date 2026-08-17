@@ -15,7 +15,9 @@ def parse_article(json_text: str) -> dict[str, Any]:
         json_text: JSON response body from Europe PMC API.
 
     Returns:
-        A dict with keys: journal, volume, issue, pages, abstract, authors, year, doi, pmid.
+        A dict with keys: journal, iso_abbreviation, volume, issue, pages,
+        abstract, authors, year, doi, pmid, open_access, in_pmc, in_epmc,
+        full_text_urls.
         Missing fields are None.
     """
     try:
@@ -28,15 +30,30 @@ def parse_article(json_text: str) -> dict[str, Any]:
 
     article = data["resultList"]["result"][0]
 
-    # Extract fields
-    journal = article.get("journalTitle")
-    volume = article.get("journalVolume")
-    issue = article.get("issue")
+    # Journal details sit at the top level under resultType=lite but move into
+    # `journalInfo` under `core`, so read both rather than depending on which
+    # result type produced the response.
+    journal_info = article.get("journalInfo") or {}
+    journal_record = journal_info.get("journal") or {}
+
+    journal = article.get("journalTitle") or journal_record.get("title")
+    iso_abbreviation = journal_record.get("isoabbreviation") or journal
+    volume = article.get("journalVolume") or journal_info.get("volume")
+    issue = article.get("issue") or journal_info.get("issue")
     pages = article.get("pageInfo")
     abstract = article.get("abstractText")
-    year = article.get("pubYear")
+    year = article.get("pubYear") or journal_info.get("yearOfPublication")
     doi = article.get("doi")
     pmid = article.get("pmid")
+
+    # Open-access status and full-text links. `isOpenAccess`, `inPMC` and
+    # `inEPMC` are "Y"/"N" flags; `fullTextUrlList` wraps a list of
+    # {availability, availabilityCode, documentStyle, site, url}. The last of
+    # these only appears with resultType=core.
+    open_access = article.get("isOpenAccess")
+    in_pmc = article.get("inPMC")
+    in_epmc = article.get("inEPMC")
+    full_text_urls = article.get("fullTextUrlList")
 
     # Parse authors from authorString (e.g. "Smith J, Jones B, ...")
     authors = []
@@ -50,6 +67,7 @@ def parse_article(json_text: str) -> dict[str, Any]:
 
     return {
         "journal": journal,
+        "iso_abbreviation": iso_abbreviation,
         "volume": volume,
         "issue": issue,
         "pages": pages,
@@ -58,6 +76,10 @@ def parse_article(json_text: str) -> dict[str, Any]:
         "year": year,
         "doi": doi,
         "pmid": pmid,
+        "open_access": open_access,
+        "in_pmc": in_pmc,
+        "in_epmc": in_epmc,
+        "full_text_urls": full_text_urls,
     }
 
 
@@ -65,6 +87,7 @@ def _null_result() -> dict[str, Any]:
     """Return a dict with all article fields set to None."""
     return {
         "journal": None,
+        "iso_abbreviation": None,
         "volume": None,
         "issue": None,
         "pages": None,
@@ -73,6 +96,10 @@ def _null_result() -> dict[str, Any]:
         "year": None,
         "doi": None,
         "pmid": None,
+        "open_access": None,
+        "in_pmc": None,
+        "in_epmc": None,
+        "full_text_urls": None,
     }
 
 
@@ -91,8 +118,16 @@ def fetch_article_by_doi(doi: str, cache_dir: Path, refresh: bool = False) -> di
     if not doi:
         return _null_result()
 
-    query = f"DOI:{quote(doi)}"
-    url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query={query}&format=json&pageSize=1"
+    # The DOI must be wrapped in double quotes. Percent-encoding alone is not
+    # enough: Europe PMC's query parser reads bare parentheses as grouping
+    # syntax, so a DOI like 10.1016/s1074-7613(00)80430-6 matches nothing.
+    query = quote(f'DOI:"{doi}"')
+    # resultType=core is what returns `abstractText` and `fullTextUrlList`;
+    # the default `lite` carries neither.
+    url = (
+        "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+        f"?query={query}&format=json&pageSize=1&resultType=core"
+    )
 
     try:
         json_text = cached_get(url, cache_dir, refresh=refresh)
@@ -126,8 +161,11 @@ def fetch_article_by_title_authors(
     # Extract last name from author string (e.g. "Garboczi, D.N." -> "Garboczi")
     last_name = first_author.split(",")[0].strip()
 
-    query = f'TITLE:"{quote(title)}" AND AUTH:"{quote(last_name)}"'
-    url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query={query}&format=json&pageSize=1"
+    query = quote(f'TITLE:"{title}" AND AUTH:"{last_name}"')
+    url = (
+        "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+        f"?query={query}&format=json&pageSize=1&resultType=core"
+    )
 
     try:
         json_text = cached_get(url, cache_dir, refresh=refresh)

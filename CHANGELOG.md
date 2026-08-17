@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **DOIs containing parentheses matched nothing.** The Europe PMC query was
+  built as `DOI:{quote(doi)}`. Percent-encoding is not sufficient: Europe PMC's
+  query parser reads bare parentheses as grouping syntax, so an identifier like
+  `10.1016/s1074-7613(00)80430-6` returned zero results. The DOI is now wrapped
+  in double quotes. This failed silently, because `fetch_article_by_doi`
+  returns a null result on any exception — one caller found 63 affected
+  structures in a set of 1,623.
+- **`parse_article` lost the journal under `resultType=core`.** `journalTitle`,
+  `journalVolume` and `issue` are top-level under `lite` but move into
+  `journalInfo` under `core`. Both layouts are now read, so the parser does not
+  depend on which result type produced the response.
+
+### Added
+- Europe PMC requests now use `resultType=core`, which is required for
+  `abstractText` and `fullTextUrlList`; the default `lite` carries neither.
+- `PublicationRecord` gains `open_access`, `in_pmc`, `in_epmc` (the `"Y"`/`"N"`
+  flags) and `full_text_urls`, plus `iso_abbreviation` from the journal record.
+- Europe PMC is consulted whenever a DOI is present, not only when PDBe's
+  abstract is missing — the open-access fields have no PDBe equivalent, so an
+  entry PDBe already described would otherwise never receive them.
+- 4 tests covering the quoting fix and both journal layouts.
+
+### Changed
+- CSV output gains `iso_abbreviation`, `open_access`, `in_pmc`, `in_epmc` and
+  `full_text_url_count`; the nested full-text list is reported as a count,
+  since a list of link objects has no sensible CSV cell.
+
 ## [0.2.0] - 2026-08-17
 
 ### Added

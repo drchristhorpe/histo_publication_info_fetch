@@ -42,11 +42,18 @@ class PublicationRecord:
     doi: str | None
     abstract: str | None
 
+    # Open-access status and full-text links, from Europe PMC
+    iso_abbreviation: str | None = None
+    open_access: str | None = None      # "Y"/"N"
+    in_pmc: str | None = None           # "Y"/"N"
+    in_epmc: str | None = None          # "Y"/"N"
+    full_text_urls: dict[str, Any] | None = None
+
     # PDB-specific extensions
-    pdb_id: str
-    release_date: str | None
-    deposition_date: str | None
-    experimental_method: str | None
+    pdb_id: str = ""
+    release_date: str | None = None
+    deposition_date: str | None = None
+    experimental_method: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PublicationRecord":
@@ -72,6 +79,10 @@ class PublicationRecord:
         """Convert to a flat dict for CSV output."""
         d = self.to_dict()
         d["authors"] = "; ".join([a["name"] for a in d["authors"]]) if d["authors"] else ""
+        # A list of link objects has no sensible CSV cell; report how many
+        # there are and leave the detail to the JSON output.
+        urls = d.pop("full_text_urls", None) or {}
+        d["full_text_url_count"] = len(urls.get("fullTextUrl", []))
         return d
 
 
@@ -112,11 +123,18 @@ class PublicationFetcher:
         # Fetch structure + publication metadata from PDBe
         pdbe_data = fetch_pdbe_entry(pdb_id, self.cache_dir, refresh=self.refresh)
 
-        # If abstract is missing, try to fetch from Europe PMC as fallback
-        if not pdbe_data.get("abstract") and pdbe_data.get("doi"):
+        # Europe PMC is consulted whenever there is a DOI, not only when the
+        # abstract is missing: the open-access status and full-text links come
+        # from there and have no PDBe equivalent, so an entry PDBe already
+        # described would otherwise never get them. The response is cached, so
+        # this costs one request per DOI.
+        if pdbe_data.get("doi"):
             pmc_data = fetch_article_by_doi(pdbe_data["doi"], self.cache_dir, refresh=self.refresh)
-            if pmc_data.get("abstract"):
+            if not pdbe_data.get("abstract") and pmc_data.get("abstract"):
                 pdbe_data["abstract"] = pmc_data["abstract"]
+            for field in ("open_access", "in_pmc", "in_epmc", "full_text_urls",
+                          "iso_abbreviation"):
+                pdbe_data[field] = pmc_data.get(field)
 
         # Convert to PublicationRecord (BibJSON format)
         record_data = self._format_bibjson(pdbe_data)
@@ -138,11 +156,16 @@ class PublicationFetcher:
             "authors": pdbe_data.get("authors", []),
             "year": pdbe_data.get("year"),
             "journal": pdbe_data.get("journal"),
+            "iso_abbreviation": pdbe_data.get("iso_abbreviation"),
             "volume": pdbe_data.get("volume"),
             "issue": pdbe_data.get("issue"),
             "pages": pdbe_data.get("pages"),
             "doi": pdbe_data.get("doi"),
             "abstract": pdbe_data.get("abstract"),
+            "open_access": pdbe_data.get("open_access"),
+            "in_pmc": pdbe_data.get("in_pmc"),
+            "in_epmc": pdbe_data.get("in_epmc"),
+            "full_text_urls": pdbe_data.get("full_text_urls"),
             "pdb_id": pdbe_data.get("pdb_id"),
             "release_date": pdbe_data.get("release_date"),
             "deposition_date": pdbe_data.get("deposition_date"),
@@ -212,11 +235,16 @@ class PublicationFetcher:
             "authors",
             "year",
             "journal",
+            "iso_abbreviation",
             "volume",
             "issue",
             "pages",
             "doi",
             "abstract",
+            "open_access",
+            "in_pmc",
+            "in_epmc",
+            "full_text_url_count",
             "release_date",
             "deposition_date",
             "experimental_method",
