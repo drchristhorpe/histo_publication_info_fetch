@@ -73,7 +73,7 @@ histo-publication-info-fetch 1ao7 1hla 4ozh --output structures.json
 
 ```json
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.3.0",
   "generated_at": "2026-07-13T15:49:22.545810+00:00",
   "pdb_ids": ["1ao7", "1hla"],
   "publications": [

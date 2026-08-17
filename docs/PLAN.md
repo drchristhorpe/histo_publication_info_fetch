@@ -88,7 +88,7 @@ describing the output shape. Implements **BibJSON** (standard bibliographic JSON
 
 ```jsonc
 {
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "generated_at": "2026-08-17T00:00:00+00:00",
   "pdb_ids": ["1ao7", "1hla"],
   "publications": [

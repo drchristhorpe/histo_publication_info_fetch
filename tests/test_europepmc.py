@@ -108,3 +108,81 @@ def test_fetch_article_by_title_authors_no_authors():
     result = fetch_article_by_title_authors("Test Article", [], Path("/tmp"), refresh=False)
 
     assert result["journal"] is None
+
+
+def test_doi_query_is_quoted_for_parenthesised_dois():
+    """Europe PMC's parser reads bare parentheses as grouping syntax, so a DOI
+    like 10.1016/s1074-7613(00)80430-6 matches nothing unless it is quoted.
+    Percent-encoding alone is not enough."""
+    from unittest.mock import patch
+
+    from histo_publication_info_fetch.sources import europepmc
+
+    with patch.object(europepmc, "cached_get", return_value="{}") as mock_get:
+        europepmc.fetch_article_by_doi("10.1016/s1074-7613(00)80430-6", Path("/tmp"))
+
+    url = mock_get.call_args[0][0]
+    assert "%22" in url, "the DOI must be wrapped in double quotes"
+    assert "resultType=core" in url, "core is required for abstract and full-text links"
+
+
+def test_parse_article_reads_core_journal_layout():
+    """Under resultType=core the journal details move into `journalInfo`;
+    parse_article must read either layout."""
+    from histo_publication_info_fetch.sources.europepmc import parse_article
+
+    core_response = json.dumps({
+        "resultList": {"result": [{
+            "pmid": "8624812",
+            "doi": "10.1016/s1074-7613(00)80430-6",
+            "pageInfo": "215-28",
+            "abstractText": "The structure of the human MHC class I molecule",
+            "isOpenAccess": "N", "inPMC": "N", "inEPMC": "N",
+            "fullTextUrlList": {"fullTextUrl": [{"url": "https://doi.org/x"}]},
+            "journalInfo": {
+                "volume": "4", "issue": "3", "yearOfPublication": 1996,
+                "journal": {"title": "Immunity", "isoabbreviation": "Immunity"},
+            },
+        }]}
+    })
+
+    result = parse_article(core_response)
+
+    assert result["journal"] == "Immunity"
+    assert result["iso_abbreviation"] == "Immunity"
+    assert result["volume"] == "4"
+    assert result["issue"] == "3"
+    assert result["year"] == 1996
+    assert result["open_access"] == "N"
+    assert result["in_pmc"] == "N"
+    assert result["in_epmc"] == "N"
+    assert len(result["full_text_urls"]["fullTextUrl"]) == 1
+
+
+def test_parse_article_still_reads_the_lite_layout():
+    """The older top-level layout must keep working."""
+    from histo_publication_info_fetch.sources.europepmc import parse_article
+
+    lite_response = json.dumps({
+        "resultList": {"result": [{
+            "journalTitle": "Immunity", "journalVolume": "4", "issue": "3",
+            "pageInfo": "215-28", "pubYear": "1996",
+        }]}
+    })
+
+    result = parse_article(lite_response)
+
+    assert result["journal"] == "Immunity"
+    assert result["volume"] == "4"
+    assert result["issue"] == "3"
+    assert result["year"] == "1996"
+
+
+def test_null_result_carries_the_new_fields():
+    """A miss must still return every key, so callers can read them blindly."""
+    from histo_publication_info_fetch.sources.europepmc import parse_article
+
+    result = parse_article("not json")
+
+    for field in ("open_access", "in_pmc", "in_epmc", "full_text_urls", "iso_abbreviation"):
+        assert field in result and result[field] is None

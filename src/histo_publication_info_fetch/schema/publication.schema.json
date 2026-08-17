@@ -3,7 +3,12 @@
   "title": "BibJSON Publication Metadata",
   "description": "BibJSON format for PDB structure publications, combining structure metadata (PDBe) with journal details (Europe PMC)",
   "type": "object",
-  "required": ["schema_version", "generated_at", "pdb_ids", "publications"],
+  "required": [
+    "schema_version",
+    "generated_at",
+    "pdb_ids",
+    "publications"
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
@@ -33,7 +38,9 @@
   "$defs": {
     "Author": {
       "type": "object",
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -55,11 +62,17 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["article", "dataset"],
+          "enum": [
+            "article",
+            "dataset"
+          ],
           "description": "Record type: 'article' if journal found, 'dataset' if structure-only"
         },
         "title": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Publication title"
         },
         "authors": {
@@ -70,31 +83,52 @@
           "description": "List of authors (BibJSON format)"
         },
         "year": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "description": "Publication year"
         },
         "journal": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Journal title (null if not found in Europe PMC)"
         },
         "volume": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Journal volume"
         },
         "issue": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Journal issue"
         },
         "pages": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Page range (e.g., '1234-1245')"
         },
         "doi": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Digital Object Identifier"
         },
         "abstract": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Publication abstract (from Europe PMC if available)"
         },
         "pdb_id": {
@@ -103,18 +137,77 @@
           "description": "PDB code (lowercase)"
         },
         "release_date": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date",
           "description": "PDB release date (YYYY-MM-DD)"
         },
         "deposition_date": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "date",
           "description": "Deposition date (YYYY-MM-DD)"
         },
         "experimental_method": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Experimental method used to solve the structure"
+        },
+        "iso_abbreviation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "ISO journal abbreviation (from Europe PMC)"
+        },
+        "open_access": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "Y",
+            "N",
+            null
+          ],
+          "description": "Europe PMC isOpenAccess flag"
+        },
+        "in_pmc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "Y",
+            "N",
+            null
+          ],
+          "description": "Europe PMC inPMC flag"
+        },
+        "in_epmc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "Y",
+            "N",
+            null
+          ],
+          "description": "Europe PMC inEPMC flag"
+        },
+        "full_text_urls": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Europe PMC fullTextUrlList: {fullTextUrl: [{availability, availabilityCode, documentStyle, site, url}]}"
         }
       }
     }

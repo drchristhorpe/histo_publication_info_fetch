@@ -36,7 +36,7 @@ def cached_get(
         return cache_file.read_text(encoding="utf-8")
 
     headers = {
-        "User-Agent": "histo-publication-info-fetch/0.1.0 (+https://github.com/drchristhorpe/histo_publication_info_fetch)"
+        "User-Agent": "histo-publication-info-fetch/0.3.0 (+https://github.com/drchristhorpe/histo_publication_info_fetch)"
     }
     response = requests.get(url, headers=headers, timeout=timeout)
     response.raise_for_status()

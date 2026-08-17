@@ -1,6 +1,6 @@
 [project]
 name = "histo-publication-info-fetch"
-version = "0.1.0"
+version = "0.3.0"
 description = "Fetch publication metadata for PDB structures from the PDBe API"
 readme = "README.md"
 authors = [
