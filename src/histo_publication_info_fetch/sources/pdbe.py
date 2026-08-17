@@ -8,47 +8,73 @@ from histo_publication_info_fetch.http import cached_get
 
 def parse_publications(json_text: str, pdb_id: str) -> dict[str, Any]:
     """
-    Parse PDBe API entry/publications response to extract DOI and publication year.
+    Parse PDBe API entry/publications response to extract full publication metadata.
 
     Args:
         json_text: JSON response body from PDBe API publications endpoint.
         pdb_id: The PDB code (lowercase), for validation.
 
     Returns:
-        A dict with keys: doi, publication_year, or None if not available.
+        A dict with publication metadata: journal, volume, issue, pages, abstract,
+        authors, doi, pubmed_id, year. Missing fields are None.
     """
     try:
         data = json.loads(json_text)
     except json.JSONDecodeError:
-        return {"doi": None, "publication_year": None}
+        return _null_publication()
 
     pdb_id_lower = pdb_id.lower()
     if pdb_id_lower not in data:
-        return {"doi": None, "publication_year": None}
+        return _null_publication()
 
     entries = data[pdb_id_lower]
     if not entries or not isinstance(entries, list):
-        return {"doi": None, "publication_year": None}
+        return _null_publication()
 
-    entry = entries[0]
+    # Take the first publication (primary reference)
+    pub = entries[0]
 
-    # Extract DOI
-    doi = None
-    for pub in entry.get("publications", []):
-        if pub.get("doi"):
-            doi = pub.get("doi")
-            break
+    # Extract journal info
+    journal_info = pub.get("journal_info", {})
+    journal = journal_info.get("pdb_abbreviation") or journal_info.get("ISO_abbreviation")
 
-    # Extract publication year from release_date if available
-    publication_year = None
-    release_date = entry.get("release_date")
-    if release_date:
-        try:
-            publication_year = int(release_date[:4])
-        except (ValueError, IndexError):
-            pass
+    # Extract abstract (may be nested or unassigned)
+    abstract_data = pub.get("abstract", {})
+    abstract = abstract_data.get("unassigned") if isinstance(abstract_data, dict) else None
 
-    return {"doi": doi, "publication_year": publication_year}
+    # Extract authors from author_list
+    authors = []
+    for author in pub.get("author_list", []):
+        full_name = author.get("full_name")
+        if full_name:
+            authors.append(full_name)
+
+    return {
+        "journal": journal,
+        "volume": journal_info.get("volume"),
+        "issue": journal_info.get("issue"),
+        "pages": journal_info.get("pages"),
+        "abstract": abstract,
+        "authors": authors,
+        "doi": pub.get("doi"),
+        "pubmed_id": pub.get("pubmed_id"),
+        "year": journal_info.get("year"),
+    }
+
+
+def _null_publication() -> dict[str, Any]:
+    """Return a dict with all publication fields set to None."""
+    return {
+        "journal": None,
+        "volume": None,
+        "issue": None,
+        "pages": None,
+        "abstract": None,
+        "authors": None,
+        "doi": None,
+        "pubmed_id": None,
+        "year": None,
+    }
 
 
 def parse_entry_summary(json_text: str, pdb_id: str) -> dict[str, Any]:

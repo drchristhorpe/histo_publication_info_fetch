@@ -2,10 +2,10 @@
 
 ## 1. Purpose
 
-Fetch complete publication metadata for PDB codes, combining structure data (PDBe API)
-and journal publication details (Europe PMC). Given one or more PDB codes, retrieve:
-structure metadata (title, authors, release date, experimental method), publication
-details (journal, volume, issue, pages, DOI, abstract), and output as BibJSON.
+Fetch complete publication metadata for PDB codes from PDBe API endpoints. Given one or
+more PDB codes, retrieve: structure metadata (title, authors, release date, experimental
+method), publication details (journal, volume, issue, pages, DOI, abstract), and output
+as BibJSON.
 
 Primary output: JSON documents in BibJSON format, optionally CSV for batch processing.
 Single PDB code as the atomic unit — structure analysis tools and downstream pipelines
@@ -25,73 +25,61 @@ These were resolved by inspecting the live PDBe API (not guessed):
 - **Caching strategy**: disk-cached per endpoint per PDB code, default under
   `~/.cache/histo_publication_info_fetch/`, with `--refresh` flag to bypass.
 
-### v0.2 mid-build expansion: Journal enrichment via Europe PMC
+### v0.2 mid-build expansion: Journal enrichment via PDBe publications endpoint
 
 After v0.1 release, scope expanded to include full publication details. **Strategy**:
-- Fetch DOI from PDBe's `/entry/publications/{pdb_id}` endpoint
-- Query Europe PMC (`https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=DOI:{doi}`)
-  to fetch journal, volume, issue, pages, abstract, full author list
-- Linking: DOI provides most reliable link; fallback to title+authors if DOI unavailable
-- **Why Europe PMC**: openly available, no API key required, comprehensive biomedical index
-- **Fallback**: if publication not found in Europe PMC, output structure metadata only (BibJSON
-  format with `type: "dataset"` and PDB-specific fields)
+- Fetch all publication metadata from PDBe's `/entry/publications/{pdb_id}` endpoint, which
+  already provides journal, volume, issue, pages, abstract, author list, DOI, and PubMed ID
+- PDBe publications endpoint is the authoritative source for PDB structure publications
+- Optional fallback to Europe PMC only if abstract is missing from PDBe (for older entries)
+- **Why PDBe**: single endpoint, authoritative for PDB structures, complete metadata
+- **Graceful degradation**: if no journal data in PDBe, output structure-only format with
+  `type: "dataset"` and PDB-specific fields
 
 **Output format**: BibJSON (standard bibliographic JSON format used by Zotero, Mendeley, etc.),
 compatible with downstream citation tools.
 
 ## 3. Source fetching & parsing
 
-Two source modules handle the multi-phase fetch:
-
-### 3a. PDBe structure & publication metadata (`sources/pdbe.py`)
+### PDBe structure & publication metadata (`sources/pdbe.py`)
 
 ```python
 # sources/pdbe.py
 def parse_entry_summary(json_text: str, pdb_id: str) -> dict: ...  # structure fields from /entry/summary
-def parse_publications(json_text: str, pdb_id: str) -> dict: ...  # DOI + publication_year from /entry/publications
-def fetch_pdbe_entry(pdb_id: str, cache_dir: Path, refresh: bool) -> dict: ...  # fetch both endpoints
+def parse_publications(json_text: str, pdb_id: str) -> dict: ...  # publication metadata from /entry/publications
+def fetch_pdbe_entry(pdb_id: str, cache_dir: Path, refresh: bool) -> dict: ...  # fetch both endpoints, merge results
 ```
 
-- **`/entry/summary/{pdb_id}`**: returns structure metadata (title, entry_authors, release_date,
+- **`/entry/summary/{pdb_id}`**: structure metadata (title, entry_authors, release_date,
   experimental_method, deposition_date, etc.)
-- **`/entry/publications/{pdb_id}`**: returns publication metadata including DOI and publication_year
+- **`/entry/publications/{pdb_id}`**: publication metadata (journal, volume, issue, pages,
+  abstract, authors, DOI, PubMed ID, year)
 - Parser normalizes release_date from YYYYMMDD → YYYY-MM-DD, joins experimental_method array
-  into semicolon-separated string, extracts DOI from publications endpoint
+  into semicolon-separated string, extracts full publication metadata from publications endpoint
 - `fetch_pdbe_entry()` calls both endpoints and merges results into a single dict
 
-### 3b. Europe PMC publication enrichment (`sources/europepmc.py`)
+### Europe PMC fallback (`sources/europepmc.py`)
 
-```python
-# sources/europepmc.py
-def parse_article(json_text: str) -> dict: ...  # extract journal, pages, abstract, authors from Europe PMC article
-def fetch_article_by_doi(doi: str, cache_dir: Path, refresh: bool) -> dict: ...  # query by DOI, cache result
-def fetch_article_by_title_authors(title: str, authors: list[str], cache_dir: Path, refresh: bool) -> dict: ...  # fallback
-```
-
-- Europe PMC REST API: `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=DOI:{doi}`
-  returns article metadata (journalTitle, pageInfo, abstract, authorString, year, volume, issue, etc.)
-- Parser extracts these fields and normalizes to a flat dict
-- Fallback: if no DOI or not found, `fetch_article_by_title_authors()` searches by title+first author
-- Both endpoints cached per PDB code
+Optional module for abstract lookup if PDBe response is missing abstract:
+- `fetch_article_by_doi()`: queries Europe PMC by DOI if PDBe abstract is missing
+- Cached per PDB code to avoid duplicate requests
+- Non-critical: if Europe PMC fetch fails, continues with PDBe-only data
 
 ## 4. Collation & normalization
 
 1. For each input PDB code:
    - Lowercase it (input validation).
-   - **Phase 1 (structure)**: Fetch from PDBe `/entry/summary` and `/entry/publications`, extract title,
-     authors, release_date, experimental_method, deposition_date, DOI.
-   - **Phase 2 (journal enrichment)**: If DOI present, query Europe PMC. On success, extract journal,
-     volume, issue, pages, abstract, full author list. On failure (no DOI, not in PMC), continue with
-     Phase 1 data only.
-   - Merge results into a single `PublicationRecord`.
+   - Fetch from PDBe `/entry/summary` and `/entry/publications`, extract structure + publication metadata.
+   - If abstract is missing and DOI present, optionally fetch from Europe PMC (non-critical).
+   - Convert to `PublicationRecord` (BibJSON format).
 2. Assemble result: list of `PublicationRecord` dicts (one per input PDB, in order).
 
 Normalization:
 - All dates: ISO YYYY-MM-DD format (both release_date and deposition_date).
-- Authors: use Europe PMC authorString if available (fuller author list); fall back to PDBe entry_authors.
+- Authors: from PDBe author_list (extracted from publications endpoint).
 - experimental_method: array from PDBe → semicolon-separated string.
-- journal fields: if not from Europe PMC, set to `null`.
-- BibJSON fields: `type` is `"article"` if journal present, `"dataset"` if structure-only.
+- journal fields: from PDBe publications endpoint (set to `null` if not available).
+- BibJSON fields: `type` is `"article"` if journal data present, `"dataset"` if structure-only.
 
 ## 5. JSON Schema (BibJSON v0.2+)
 

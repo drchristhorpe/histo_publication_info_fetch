@@ -95,8 +95,9 @@ class PublicationFetcher:
         """
         Fetch publication metadata for a single PDB code.
 
-        Two-phase fetch: (1) PDBe for structure metadata + DOI, (2) Europe PMC for
-        journal details if DOI available.
+        Primary source: PDBe API (both /entry/summary and /entry/publications endpoints)
+        for structure and publication metadata. Fallback to Europe PMC if abstract
+        missing from PDBe.
 
         Args:
             pdb_id: PDB code (case-insensitive).
@@ -108,55 +109,40 @@ class PublicationFetcher:
             ValueError: If the PDB code is invalid.
             requests.RequestException: If the API request fails.
         """
-        # Phase 1: Fetch structure metadata from PDBe (including DOI from publications endpoint)
+        # Fetch structure + publication metadata from PDBe
         pdbe_data = fetch_pdbe_entry(pdb_id, self.cache_dir, refresh=self.refresh)
 
-        # Phase 2: Enrich with journal metadata from Europe PMC
-        doi = pdbe_data.get("doi")
-        pmc_data = None
+        # If abstract is missing, try to fetch from Europe PMC as fallback
+        if not pdbe_data.get("abstract") and pdbe_data.get("doi"):
+            pmc_data = fetch_article_by_doi(pdbe_data["doi"], self.cache_dir, refresh=self.refresh)
+            if pmc_data.get("abstract"):
+                pdbe_data["abstract"] = pmc_data["abstract"]
 
-        if doi:
-            # Try DOI lookup first (most reliable)
-            pmc_data = fetch_article_by_doi(doi, self.cache_dir, refresh=self.refresh)
-            if not pmc_data.get("journal"):
-                # Fallback to title+authors if DOI lookup failed
-                title = pdbe_data.get("title")
-                authors = pdbe_data.get("authors", [])
-                pmc_data = fetch_article_by_title_authors(title, authors, self.cache_dir, refresh=self.refresh)
-        else:
-            # No DOI; try title+authors as fallback
-            title = pdbe_data.get("title")
-            authors = pdbe_data.get("authors", [])
-            pmc_data = fetch_article_by_title_authors(title, authors, self.cache_dir, refresh=self.refresh)
-
-        # Merge results
-        record_data = self._merge_pbe_pmc(pdbe_data, pmc_data or {})
+        # Convert to PublicationRecord (BibJSON format)
+        record_data = self._format_bibjson(pdbe_data)
         return PublicationRecord.from_dict(record_data)
 
-    def _merge_pbe_pmc(self, pdbe_data: dict[str, Any], pmc_data: dict[str, Any]) -> dict[str, Any]:
+    def _format_bibjson(self, pdbe_data: dict[str, Any]) -> dict[str, Any]:
         """
-        Merge PDBe structure data with Europe PMC journal data.
+        Format PDBe data as BibJSON.
 
         Returns:
             Dict ready for PublicationRecord.from_dict().
         """
-        # Use PMC authors if available (fuller author list), otherwise PDBe
-        authors = pmc_data.get("authors") or pdbe_data.get("authors", [])
-
-        # Determine record type
-        record_type = "article" if pmc_data.get("journal") else "dataset"
+        # Determine record type based on whether journal data is present
+        record_type = "article" if pdbe_data.get("journal") else "dataset"
 
         return {
             "type": record_type,
             "title": pdbe_data.get("title"),
-            "authors": authors,
-            "year": pmc_data.get("year") or pdbe_data.get("publication_year"),
-            "journal": pmc_data.get("journal"),
-            "volume": pmc_data.get("volume"),
-            "issue": pmc_data.get("issue"),
-            "pages": pmc_data.get("pages"),
-            "doi": pmc_data.get("doi") or pdbe_data.get("doi"),
-            "abstract": pmc_data.get("abstract"),
+            "authors": pdbe_data.get("authors", []),
+            "year": pdbe_data.get("year"),
+            "journal": pdbe_data.get("journal"),
+            "volume": pdbe_data.get("volume"),
+            "issue": pdbe_data.get("issue"),
+            "pages": pdbe_data.get("pages"),
+            "doi": pdbe_data.get("doi"),
+            "abstract": pdbe_data.get("abstract"),
             "pdb_id": pdbe_data.get("pdb_id"),
             "release_date": pdbe_data.get("release_date"),
             "deposition_date": pdbe_data.get("deposition_date"),

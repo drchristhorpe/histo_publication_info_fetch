@@ -117,21 +117,14 @@ def test_fetcher_fetch_one(mock_fetch_pdbe, mock_fetch_pmc, tmp_path):
         "deposition_date": "2019-12-01",
         "experimental_method": "X-ray diffraction",
         "doi": "10.1234/test",
-        "publication_year": 2020,
-    }
-    mock_pmc_data = {
         "journal": "Test Journal",
         "volume": "10",
         "issue": "5",
         "pages": "123-135",
         "abstract": "Test abstract.",
-        "authors": ["Author"],
         "year": 2020,
-        "doi": "10.1234/test",
-        "pmid": None,
     }
     mock_fetch_pdbe.return_value = mock_pdbe_data
-    mock_fetch_pmc.return_value = mock_pmc_data
 
     fetcher = PublicationFetcher(cache_dir=tmp_path)
     record = fetcher.fetch_one("1ao7")
@@ -139,12 +132,12 @@ def test_fetcher_fetch_one(mock_fetch_pdbe, mock_fetch_pmc, tmp_path):
     assert record.pdb_id == "1ao7"
     assert record.title == "Test"
     assert record.type == "article"
+    assert record.journal == "Test Journal"
     mock_fetch_pdbe.assert_called_once()
 
 
-@patch("histo_publication_info_fetch.core.fetch_article_by_doi")
 @patch("histo_publication_info_fetch.core.fetch_pdbe_entry")
-def test_fetcher_fetch_many(mock_fetch_pdbe, mock_fetch_pmc, tmp_path):
+def test_fetcher_fetch_many(mock_fetch_pdbe, tmp_path):
     """Test fetching multiple PDB codes."""
     mock_pdbe_1 = {
         "pdb_id": "1ao7",
@@ -154,7 +147,8 @@ def test_fetcher_fetch_many(mock_fetch_pdbe, mock_fetch_pmc, tmp_path):
         "deposition_date": None,
         "experimental_method": None,
         "doi": None,
-        "publication_year": None,
+        "journal": None,
+        "year": None,
     }
     mock_pdbe_2 = {
         "pdb_id": "1hla",
@@ -164,21 +158,10 @@ def test_fetcher_fetch_many(mock_fetch_pdbe, mock_fetch_pmc, tmp_path):
         "deposition_date": None,
         "experimental_method": None,
         "doi": None,
-        "publication_year": None,
-    }
-    mock_pmc_null = {
         "journal": None,
-        "volume": None,
-        "issue": None,
-        "pages": None,
-        "abstract": None,
-        "authors": None,
         "year": None,
-        "doi": None,
-        "pmid": None,
     }
     mock_fetch_pdbe.side_effect = [mock_pdbe_1, mock_pdbe_2]
-    mock_fetch_pmc.return_value = mock_pmc_null
 
     fetcher = PublicationFetcher(cache_dir=tmp_path)
     records = fetcher.fetch_many(["1ao7", "1hla"])

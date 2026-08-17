@@ -6,6 +6,7 @@ import pytest
 from histo_publication_info_fetch.sources.pdbe import (
     fetch_pdbe_entry,
     parse_entry_summary,
+    parse_publications,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "pdbe"
@@ -103,3 +104,59 @@ def test_fetch_pdbe_entry_invalid_code(tmp_path):
 
     with pytest.raises(ValueError):
         fetch_pdbe_entry("", tmp_path)
+
+
+def test_parse_publications_complete():
+    """Test parsing a complete publication entry."""
+    pub_data = {
+        "1ao7": [
+            {
+                "doi": "10.1038/384134a0",
+                "title": "Test Article",
+                "pubmed_id": "8906788",
+                "journal_info": {
+                    "pdb_abbreviation": "Nature",
+                    "ISO_abbreviation": "Nature",
+                    "pages": "134-41",
+                    "volume": "384",
+                    "issue": "6605",
+                    "year": 1996,
+                },
+                "abstract": {
+                    "unassigned": "This is the abstract text."
+                },
+                "author_list": [
+                    {"full_name": "Garboczi DN"},
+                    {"full_name": "Ghosh P"},
+                ]
+            }
+        ]
+    }
+
+    result = parse_publications(json.dumps(pub_data), "1ao7")
+
+    assert result["doi"] == "10.1038/384134a0"
+    assert result["journal"] == "Nature"
+    assert result["volume"] == "384"
+    assert result["issue"] == "6605"
+    assert result["pages"] == "134-41"
+    assert result["year"] == 1996
+    assert result["abstract"] == "This is the abstract text."
+    assert len(result["authors"]) == 2
+    assert result["authors"][0] == "Garboczi DN"
+
+
+def test_parse_publications_empty():
+    """Test parsing when no publications are found."""
+    result = parse_publications(json.dumps({"1ao7": []}), "1ao7")
+
+    assert result["doi"] is None
+    assert result["journal"] is None
+
+
+def test_parse_publications_missing_pdb():
+    """Test parsing when PDB code not in response."""
+    result = parse_publications(json.dumps({"1hla": []}), "1ao7")
+
+    assert result["doi"] is None
+    assert result["journal"] is None

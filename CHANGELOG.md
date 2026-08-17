@@ -9,29 +9,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.2.0] - 2026-08-17
 
 ### Added
-- **Journal enrichment via Europe PMC**: two-phase fetch now combines PDBe structure metadata with publication details from Europe PMC REST API.
+- **Journal enrichment from PDBe**: fetch complete publication metadata (journal, volume, issue, pages, abstract, authors, DOI, year) directly from PDBe's `/entry/publications/{pdb_id}` endpoint.
 - **BibJSON format**: output now complies with BibJSON (standard bibliographic JSON format used by Zotero, Mendeley, etc.).
-- **New fields**: journal, volume, issue, pages, abstract, year, DOI (via Europe PMC).
-- **Author enrichment**: uses fuller author lists from Europe PMC when available.
+- **New fields**: `type`, `year`, `journal`, `volume`, `issue`, `pages`, `abstract` (all from PDBe).
 - **Publication type field**: `type` is `"article"` if journal data found, `"dataset"` if structure-only.
-- New source module: `sources/europepmc.py` with DOI lookup and title+author fallback search.
 - `Author` dataclass exported in public API.
-- 7 new tests for Europe PMC parsing and fetching.
+- Optional Europe PMC fallback module for abstract lookup if PDBe is missing it.
+- 10 new tests for publication parsing and BibJSON formatting.
 
 ### Changed
 - **Schema version bumped to 0.2.0** (breaking change for consumers parsing v0.1).
 - Output format now BibJSON: `authors` are objects with `name` field (not strings).
 - CLI output format unchanged (still JSON/CSV), but JSON structure is now BibJSON.
-- Fetch strategy: now calls PDBe `/entry/publications/{pdb_id}` to extract DOI for linkage to Europe PMC.
-- Fallback strategy: if Europe PMC lookup fails, output structure metadata only with `type: "dataset"`.
+- Fetch strategy: PDBe `/entry/publications/{pdb_id}` endpoint provides complete publication metadata — no secondary API calls needed in most cases.
 - `PublicationRecord` dataclass expanded with BibJSON fields: `type`, `year`, `journal`, `volume`, `issue`, `pages`, `doi`, `abstract`.
 - CSV output now includes all BibJSON fields.
 
 ### Technical Details
-- Two-phase orchestration in `PublicationFetcher.fetch_one()`: (1) PDBe (structure + DOI), (2) Europe PMC (journal enrichment).
-- Both endpoints cached independently per PDB code.
-- Graceful degradation: missing DOI or failed PMC lookup does not fail the entire fetch — returns structure data only.
-- Europe PMC supports: DOI lookup (primary), title+author lookup (fallback).
+- Single-endpoint design: PDBe publications endpoint contains all needed publication metadata (journal, pages, authors, DOI, abstract, year).
+- Optional Europe PMC fallback: only used if abstract is missing from PDBe (rare for recent structures).
+- Graceful degradation: missing journal data results in `type: "dataset"` output, not a fetch error.
+- Cached per PDB code and endpoint.
 
 ## [0.1.0] - 2026-07-13
 

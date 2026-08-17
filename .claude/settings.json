@@ -6,7 +6,11 @@
       "WebFetch(domain:cran.r-project.org)",
       "WebFetch(domain:www.biostars.org)",
       "WebFetch(domain:academic.oup.com)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s \"https://www.ebi.ac.uk/pdbe/api/pdb/entry/publications/1hla\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"https://www.ebi.ac.uk/pdbe/api/pdb/entry/publications/1ao7\")"
     ]
   }
 }
