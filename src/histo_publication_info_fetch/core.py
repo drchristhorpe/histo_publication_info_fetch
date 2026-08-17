@@ -204,7 +204,7 @@ class PublicationFetcher:
         pdb_ids = [r.pdb_id for r in records]
 
         envelope = {
-            "schema_version": "0.2.0",
+            "schema_version": "0.3.0",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "pdb_ids": pdb_ids,
             "publications": [r.to_dict() for r in records],

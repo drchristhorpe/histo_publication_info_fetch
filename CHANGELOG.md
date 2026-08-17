@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-17
+
 ### Fixed
 - **DOIs containing parentheses matched nothing.** The Europe PMC query was
   built as `DOI:{quote(doi)}`. Percent-encoding is not sufficient: Europe PMC's
@@ -33,6 +35,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CSV output gains `iso_abbreviation`, `open_access`, `in_pmc`, `in_epmc` and
   `full_text_url_count`; the nested full-text list is reported as a count,
   since a list of link objects has no sensible CSV cell.
+- `schema_version` is now `0.3.0`, and `publication.schema.json` describes the
+  five new fields.
+- The package version was stale at `0.1.0` while the changelog recorded a 0.2.0
+  release; it and the HTTP User-Agent now read `0.3.0` along with everything else.
 
 ## [0.2.0] - 2026-08-17
 

@@ -30,7 +30,7 @@ src/histo_publication_info_fetch/
     __init__.py
     pdbe.py                        # parse_entry_summary(), fetch_pdbe_entry()
   schema/
-    publication.schema.json        # JSON Schema for output (v0.1.0)
+    publication.schema.json        # JSON Schema for output (v0.3.0)
 
 tests/
   test_pdbe.py                     # parsing tests (fixtures: pdbe/1ao7.json, 1hla.json, 4ozh.json)
